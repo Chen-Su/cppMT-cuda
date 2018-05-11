@@ -7,7 +7,7 @@
 
 inline std::string NowTime();
 
-enum TLogLevel {logERROR, logWARNING, logINFO, logDEBUG4, logDEBUG1, logDEBUG2, logDEBUG3, logDEBUG};
+enum TLogLevel {logERROR, logWARNING, logINFO, logDEBUG, logDEBUG1, logDEBUG2, logDEBUG3, logDEBUG4};
 
 template <typename T>
 class Log
@@ -126,9 +126,10 @@ class FILELOG_DECLSPEC FILELog : public Log<Output2FILE> {};
 #define FILELOG_MAX_LEVEL logDEBUG4
 #endif
 
+// FILELog::ReportingLevel()
 #define FILE_LOG(level) \
     if (level > FILELOG_MAX_LEVEL) ;\
-    else if (level > FILELog::ReportingLevel() || !Output2FILE::Stream()) ; \
+    else if (level > 0 || !Output2FILE::Stream()) ; \
     else FILELog().Get(level)
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)

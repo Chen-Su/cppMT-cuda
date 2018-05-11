@@ -11,7 +11,8 @@ void Fusion::preferFirst(const vector<Point2f> & points_first, const vector<int>
     points_fused = points_first;
     classes_fused = classes_first;
 
-    for (size_t i = 0; i < points_second.size(); i++)
+#pragma omp parallel for
+    for (int i = 0; i < points_second.size(); i++)
     {
         int class_second = classes_second[i];
 
@@ -24,8 +25,11 @@ void Fusion::preferFirst(const vector<Point2f> & points_first, const vector<int>
 
         if (!found)
         {
-            points_fused.push_back(points_second[i]);
-            classes_fused.push_back(class_second);
+#pragma omp critical
+			{
+				points_fused.push_back(points_second[i]);
+				classes_fused.push_back(class_second);
+			}
         }
 
     }

@@ -63,12 +63,16 @@ void Matcher::matchGlobal(const vector<KeyPoint> & keypoints, const Mat descript
 	
 #if CV_VERSION_MAJOR == 3
 	cu_bfmatcher->knnMatch(cv::cuda::GpuMat(descriptors), cu_database, matches, 2);
+	//bfmatcher->knnMatch(descriptors, database, matches, 2);
+
 #else
 	bfmatcher->knnMatch(descriptors, database, matches, 2);
 #endif
     
+	printf("%d\n", matches.size());
 
-    for (size_t i = 0; i < matches.size(); i++)
+#pragma omp parallel for
+    for (int i = 0; i < matches.size(); i++)
     {
         vector<DMatch> m = matches[i];
 
@@ -81,8 +85,11 @@ void Matcher::matchGlobal(const vector<KeyPoint> & keypoints, const Mat descript
         if (distance1/distance2 > thr_ratio) continue;
 
 		// 需要加锁同步
-        points_matched.push_back(keypoints[i].pt);
-        classes_matched.push_back(matched_class);
+#pragma omp critical
+		{
+			points_matched.push_back(keypoints[i].pt);
+			classes_matched.push_back(matched_class);
+		}   
     }
 
     FILE_LOG(logDEBUG) << "Matcher::matchGlobal() return";
@@ -108,7 +115,8 @@ void Matcher::matchLocal(const vector<KeyPoint> & keypoints, const Mat descripto
     }
 
     //Perform local matching
-    for (size_t i = 0; i < keypoints.size(); i++)
+#pragma omp parallel for
+    for (int i = 0; i < keypoints.size(); i++)
     {
         //Normalize keypoint with respect to center
         Point2f location_rel = keypoints[i].pt - center;
@@ -151,9 +159,12 @@ void Matcher::matchLocal(const vector<KeyPoint> & keypoints, const Mat descripto
         if (distance1/distance2 > thr_ratio) continue;
 
         int matched_class = classes[indices_potential[m[0].trainIdx]];
-
-        points_matched.push_back(keypoints[i].pt);
-        classes_matched.push_back(matched_class);
+#pragma omp critical
+		{
+			points_matched.push_back(keypoints[i].pt);
+			classes_matched.push_back(matched_class);
+		}
+        
     }
 
     FILE_LOG(logDEBUG) << "Matcher::matchLocal() return";

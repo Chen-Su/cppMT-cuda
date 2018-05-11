@@ -1,5 +1,5 @@
 #include "Consensus.h"
-
+#include <omp.h>
 #define _USE_MATH_DEFINES //Necessary for M_PI to be available on Windows
 #include <cmath>
 
@@ -54,7 +54,8 @@ void Consensus::estimateScaleRotation(const vector<Point2f> & points, const vect
     vector<float> changes_angles;
     if (estimate_rotation) changes_angles.reserve(points.size()*points.size());
 
-    for (size_t i = 0; i < points.size(); i++)
+	// ²»ÊÊºÏ omp
+    for (int i = 0; i < points.size(); i++)
     {
         for (size_t j = 0; j < points.size(); j++)
         {
@@ -67,7 +68,9 @@ void Consensus::estimateScaleRotation(const vector<Point2f> & points, const vect
                     float distance = norm(v);
                     float distance_original = distances_pairwise.at<float>(classes[i],classes[j]);
                     float change_scale = distance / distance_original;
-                    changes_scale.push_back(change_scale);
+					{
+						changes_scale.push_back(change_scale);
+					}
                 }
 
                 if (estimate_rotation)
@@ -80,14 +83,16 @@ void Consensus::estimateScaleRotation(const vector<Point2f> & points, const vect
                     if (fabs(change_angle) > M_PI) {
                         change_angle = sgn(change_angle) * 2 * M_PI + change_angle;
                     }
-
-                    changes_angles.push_back(change_angle);
+					{
+						changes_angles.push_back(change_angle);
+					}
                 }
             }
 
         }
 
     }
+
 
     //Do not use changes_scale, changes_angle after this point as their order is changed by median()
     if (changes_scale.size() < 2) scale = 1;
@@ -130,14 +135,15 @@ void Consensus::findConsensus(const vector<Point2f> & points, const vector<int> 
 
     //Compute pairwise distances between votes
     int index = 0;
-    for (size_t i = 0; i < points.size(); i++)
+#pragma omp parallel for
+    for (int i = 0; i < points.size(); i++)
     {
-        for (size_t j = i+1; j < points.size(); j++)
+        for (int j = i+1; j < points.size(); j++)
         {
             //TODO: This index calculation is correct, but is it a good thing?
-            //int index = i * (points.size() - 1) - (i*i + i) / 2 + j - 1;
+            int index = i * (points.size() - 1) - (i*i + i) / 2 + j - 1;
             D[index] = norm(votes[i] - votes[j]);
-            index++;
+            //index++;
         }
     }
 
