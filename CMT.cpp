@@ -99,10 +99,7 @@ void CMT::initialize(const Mat im_gray, const Rect rect)
     consensus.initialize(points_normalized);
 
     //Create initial set of active keypoints
-    for (size_t i = 0; i < keypoints_fg.size(); i++)
-    {
-        points_active.push_back(keypoints_fg[i].pt);
-    }
+	points_active = points_fg;
 	classes_active = classes_fg;
 
 
