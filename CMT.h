@@ -45,6 +45,9 @@ private:
 
 
 	Ptr<cv::ORB> orb_detector;
+#ifdef USE_CUDA
+	Ptr<cv::cuda::ORB> orb_cuda_detector;
+#endif
 
     Size2f size_initial;
 

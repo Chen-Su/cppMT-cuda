@@ -22,11 +22,10 @@ void CMT::initialize(const Mat im_gray, const Rect rect)
     bb_rot = RotatedRect(center, size_initial, 0.0);
 
     //Initialize detector and descriptor
-
+#ifdef USE_CUDA
+	orb_cuda_detector = cv::cuda::ORB::create(5000);
+#endif
 	orb_detector = cv::ORB::create(5000, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE);
-    //detector = cv::FastFeatureDetector::create();
-    //descriptor = cv::BRISK::create();
-
 
     //Get initial keypoints in whole image and compute their descriptors
     vector<KeyPoint> keypoints;
@@ -125,22 +124,36 @@ void CMT::processFrame(Mat im_gray) {
         }
 
     }
+#ifdef USE_CUDA
+	//Detect keypoints, compute descriptors
+	vector<KeyPoint> keypoints;
+	cv::cuda::GpuMat descriptors;
+	cv::Mat mask(im_gray.size(), CV_8UC1, cv::Scalar::all(1));
+	orb_cuda_detector->detectAndCompute(cv::cuda::GpuMat(im_gray), cv::cuda::GpuMat(mask), keypoints, descriptors);
+	FILE_LOG(logDEBUG) << keypoints.size() << " keypoints found.";
 
-    //Detect keypoints, compute descriptors
-    vector<KeyPoint> keypoints;
+	//Match keypoints globally
+	vector<Point2f> points_matched_global;
+	vector<int> classes_matched_global;
+	matcher.matchGlobal(keypoints, descriptors, points_matched_global, classes_matched_global);
+	FILE_LOG(logDEBUG) << points_matched_global.size() << " points matched globally.";
+#else
+	//Detect keypoints, compute descriptors
+	vector<KeyPoint> keypoints;
 	orb_detector->detect(im_gray, keypoints);
 
-    FILE_LOG(logDEBUG) << keypoints.size() << " keypoints found.";
+	FILE_LOG(logDEBUG) << keypoints.size() << " keypoints found.";
 
-    Mat descriptors;
+	Mat descriptors;
 	orb_detector->compute(im_gray, keypoints, descriptors);
 
-    //Match keypoints globally
-    vector<Point2f> points_matched_global;
-    vector<int> classes_matched_global;
-    matcher.matchGlobal(keypoints, descriptors, points_matched_global, classes_matched_global);
+	//Match keypoints globally
+	vector<Point2f> points_matched_global;
+	vector<int> classes_matched_global;
+	matcher.matchGlobal(keypoints, descriptors, points_matched_global, classes_matched_global);
 
-    FILE_LOG(logDEBUG) << points_matched_global.size() << " points matched globally.";
+	FILE_LOG(logDEBUG) << points_matched_global.size() << " points matched globally.";
+#endif
 
     //Fuse tracked and globally matched points
     vector<Point2f> points_fused;

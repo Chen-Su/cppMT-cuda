@@ -25,7 +25,7 @@ void Matcher::initialize(const vector<Point2f> & pts_fg_norm, const Mat desc_fg,
         database = desc_fg;
 
 #ifdef USE_CUDA
-	cu_database = cv::cuda::GpuMat(database);
+	cu_database = GpuMat(database);
 #endif
 
     //Extract descriptor length from features
@@ -48,6 +48,47 @@ void Matcher::initialize(const vector<Point2f> & pts_fg_norm, const Mat desc_fg,
     FILE_LOG(logDEBUG) << "Matcher::initialize() return";
 }
 
+#ifdef USE_CUDA
+void Matcher::matchGlobal(const vector<KeyPoint>& keypoints, const GpuMat descriptors, vector<Point2f>& points_matched, vector<int>& classes_matched)
+{
+	FILE_LOG(logDEBUG) << "Matcher::matchGlobal() call";
+
+	if (keypoints.size() == 0)
+	{
+		FILE_LOG(logDEBUG) << "Matcher::matchGlobal() return";
+		return;
+	}
+
+	vector<vector<DMatch> > matches;
+
+	cu_bfmatcher->knnMatch(descriptors, cu_database, matches, 2);
+
+	printf("%d\n", matches.size());
+
+#pragma omp parallel for
+	for (int i = 0; i < matches.size(); i++)
+	{
+		vector<DMatch> m = matches[i];
+
+		float distance1 = m[0].distance / desc_length;
+		float distance2 = m[1].distance / desc_length;
+		int matched_class = classes[m[0].trainIdx];
+
+		if (matched_class == -1) continue;
+		if (distance1 > thr_dist) continue;
+		if (distance1 / distance2 > thr_ratio) continue;
+
+		// 需要加锁同步
+#pragma omp critical
+		{
+			points_matched.push_back(keypoints[i].pt);
+			classes_matched.push_back(matched_class);
+		}
+	}
+
+	FILE_LOG(logDEBUG) << "Matcher::matchGlobal() return";
+}
+#else
 void Matcher::matchGlobal(const vector<KeyPoint> & keypoints, const Mat descriptors,
         vector<Point2f> & points_matched, vector<int> & classes_matched)
 {
@@ -61,13 +102,7 @@ void Matcher::matchGlobal(const vector<KeyPoint> & keypoints, const Mat descript
 
     vector<vector<DMatch> > matches;
 	
-#ifdef USE_CUDA
-	cu_bfmatcher->knnMatch(cv::cuda::GpuMat(descriptors), cu_database, matches, 2);
-	//bfmatcher->knnMatch(descriptors, database, matches, 2);
-
-#else
 	bfmatcher->knnMatch(descriptors, database, matches, 2);
-#endif
     
 	printf("%d\n", matches.size());
 
@@ -94,6 +129,8 @@ void Matcher::matchGlobal(const vector<KeyPoint> & keypoints, const Mat descript
 
     FILE_LOG(logDEBUG) << "Matcher::matchGlobal() return";
 }
+#endif
+
 
 void Matcher::matchLocal(const vector<KeyPoint> & keypoints, const Mat descriptors,
         const Point2f center, const float scale, const float rotation,

@@ -129,7 +129,7 @@ class FILELOG_DECLSPEC FILELog : public Log<Output2FILE> {};
 // FILELog::ReportingLevel()
 #define FILE_LOG(level) \
     if (level > FILELOG_MAX_LEVEL) ;\
-    else if (level > 0 || !Output2FILE::Stream()) ; \
+    else if (level > FILELOG_MAX_LEVEL || !Output2FILE::Stream()) ; \
     else FILELog().Get(level)
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
