@@ -102,8 +102,9 @@ void CMT::initialize(const Mat im_gray, const Rect rect)
     for (size_t i = 0; i < keypoints_fg.size(); i++)
     {
         points_active.push_back(keypoints_fg[i].pt);
-        classes_active = classes_fg;
     }
+	classes_active = classes_fg;
+
 
     FILE_LOG(logDEBUG) << "CMT::initialize() return";
 }
