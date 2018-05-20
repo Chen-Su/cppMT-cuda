@@ -170,20 +170,20 @@ void CMT::processFrame(Mat im_gray) {
     FILE_LOG(logDEBUG) << "center " << center;
 
     //Match keypoints locally
-    vector<Point2f> points_matched_local;
+    /*vector<Point2f> points_matched_local;
     vector<int> classes_matched_local;
     matcher.matchLocal(keypoints, descriptors, center, scale, rotation, points_matched_local, classes_matched_local);
 
-    FILE_LOG(logDEBUG) << points_matched_local.size() << " points matched locally.";
+    FILE_LOG(logDEBUG) << points_matched_local.size() << " points matched locally.";*/
 
     //Clear active points
     points_active.clear();
     classes_active.clear();
 
     //Fuse locally matched points and inliers
-    fusion.preferFirst(points_matched_local, classes_matched_local, points_inlier, classes_inlier, points_active, classes_active);
-//    points_active = points_fused;
-//    classes_active = classes_fused;
+    //fusion.preferFirst(points_matched_local, classes_matched_local, points_inlier, classes_inlier, points_active, classes_active);
+    points_active = points_inlier;
+    classes_active = classes_inlier;
 
     FILE_LOG(logDEBUG) << points_active.size() << " final fused points.";
 
