@@ -10,6 +10,8 @@
 
 #include "logging/log.h"
 
+#define USE_CUDA
+
 using cv::Mat;
 using cv::Point2f;
 using cv::Rect;

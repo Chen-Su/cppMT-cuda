@@ -10,7 +10,7 @@
 
 #include <opencv2/features2d/features2d.hpp>
 
-#if CV_MAJOR_VERSION == 3
+#ifdef USE_CUDA
 
 #include "opencv2/cudafeatures2d.hpp"
 

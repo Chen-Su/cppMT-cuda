@@ -24,7 +24,7 @@ void Matcher::initialize(const vector<Point2f> & pts_fg_norm, const Mat desc_fg,
     else
         database = desc_fg;
 
-#if CV_VERSION_MAJOR == 3
+#ifdef USE_CUDA
 	cu_database = cv::cuda::GpuMat(database);
 #endif
 
@@ -39,7 +39,7 @@ void Matcher::initialize(const vector<Point2f> & pts_fg_norm, const Mat desc_fg,
     classes.insert(classes.end(), classes_fg.begin(), classes_fg.end());
 
     //Create descriptor matcher
-#if CV_VERSION_MAJOR == 3
+#ifdef USE_CUDA
 	cu_bfmatcher = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
 #endif
 	bfmatcher = DescriptorMatcher::create("BruteForce-Hamming");
@@ -61,7 +61,7 @@ void Matcher::matchGlobal(const vector<KeyPoint> & keypoints, const Mat descript
 
     vector<vector<DMatch> > matches;
 	
-#if CV_VERSION_MAJOR == 3
+#ifdef USE_CUDA
 	cu_bfmatcher->knnMatch(cv::cuda::GpuMat(descriptors), cu_database, matches, 2);
 	//bfmatcher->knnMatch(descriptors, database, matches, 2);
 
@@ -144,7 +144,7 @@ void Matcher::matchLocal(const vector<KeyPoint> & keypoints, const Mat descripto
 
         //Find distances between descriptors
         vector<vector<DMatch> > matches;
-#if CV_VERSION_MAJOR == 3
+#ifdef USE_CUDA
 		bfmatcher->knnMatch(descriptors.row(i), database_potential, matches, 2);
 #else
 		bfmatcher->knnMatch(descriptors.row(i), database_potential, matches, 2);

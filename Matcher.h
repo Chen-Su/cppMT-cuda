@@ -6,7 +6,7 @@
 
 #include "opencv2/features2d/features2d.hpp"
 
-#if CV_VERSION_MAJOR == 3
+#ifdef USE_CUDA
 
 #include "opencv2/cudafeatures2d.hpp"
 
@@ -37,7 +37,7 @@ private:
     int desc_length;
     int num_bg_points;
 
-#if CV_VERSION_MAJOR == 3
+#ifdef USE_CUDA
 	Ptr<cv::cuda::DescriptorMatcher> cu_bfmatcher;
 	cv::cuda::GpuMat cu_database;
 #endif
