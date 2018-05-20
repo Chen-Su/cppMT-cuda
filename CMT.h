@@ -29,7 +29,7 @@ namespace cmt
 class CMT
 {
 public:
-    CMT() : str_detector("FAST"), str_descriptor("BRISK") {};
+    CMT(){};
     void initialize(const Mat im_gray, const Rect rect);
     void processFrame(const Mat im_gray);
 
@@ -38,15 +38,13 @@ public:
     Tracker tracker;
     Consensus consensus;
 
-    string str_detector;
-    string str_descriptor;
-
     vector<Point2f> points_active; //public for visualization purposes
     RotatedRect bb_rot;
 
 private:
-    Ptr<FeatureDetector> detector;
-    Ptr<DescriptorExtractor> descriptor;
+
+
+	Ptr<cv::ORB> orb_detector;
 
     Size2f size_initial;
 

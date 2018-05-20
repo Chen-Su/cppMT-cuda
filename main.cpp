@@ -170,12 +170,6 @@ int main(int argc, char **argv)
                     rect = Rect(x,y,w,h);
                 }
                 break;
-            case detector_cmd:
-                cmt.str_detector = optarg;
-                break;
-            case descriptor_cmd:
-                cmt.str_descriptor = optarg;
-                break;
             case output_file_cmd:
                 output_path = optarg;
                 output_flag = 1;

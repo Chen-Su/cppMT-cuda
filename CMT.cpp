@@ -22,17 +22,15 @@ void CMT::initialize(const Mat im_gray, const Rect rect)
     bb_rot = RotatedRect(center, size_initial, 0.0);
 
     //Initialize detector and descriptor
-#if CV_MAJOR_VERSION > 2
-    detector = cv::FastFeatureDetector::create();
-    descriptor = cv::BRISK::create();
-#else
-    detector = FeatureDetector::create(str_detector);
-    descriptor = DescriptorExtractor::create(str_descriptor);
-#endif
+
+	orb_detector = cv::ORB::create(5000, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE);
+    //detector = cv::FastFeatureDetector::create();
+    //descriptor = cv::BRISK::create();
+
 
     //Get initial keypoints in whole image and compute their descriptors
     vector<KeyPoint> keypoints;
-    detector->detect(im_gray, keypoints);
+	orb_detector->detect(im_gray, keypoints);
 
     //Divide keypoints into foreground and background keypoints according to selection
     vector<KeyPoint> keypoints_fg;
@@ -66,8 +64,8 @@ void CMT::initialize(const Mat im_gray, const Rect rect)
     //Compute foreground/background features
     Mat descs_fg;
     Mat descs_bg;
-    descriptor->compute(im_gray, keypoints_fg, descs_fg);
-    descriptor->compute(im_gray, keypoints_bg, descs_bg);
+	orb_detector->compute(im_gray, keypoints_fg, descs_fg);
+	orb_detector->compute(im_gray, keypoints_bg, descs_bg);
 
     //Only now is the right time to convert keypoints to points, as compute() might remove some keypoints
     vector<Point2f> points_fg;
@@ -130,12 +128,12 @@ void CMT::processFrame(Mat im_gray) {
 
     //Detect keypoints, compute descriptors
     vector<KeyPoint> keypoints;
-    detector->detect(im_gray, keypoints);
+	orb_detector->detect(im_gray, keypoints);
 
     FILE_LOG(logDEBUG) << keypoints.size() << " keypoints found.";
 
     Mat descriptors;
-    descriptor->compute(im_gray, keypoints, descriptors);
+	orb_detector->compute(im_gray, keypoints, descriptors);
 
     //Match keypoints globally
     vector<Point2f> points_matched_global;
