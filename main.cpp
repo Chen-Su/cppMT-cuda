@@ -9,6 +9,7 @@
 #include <sstream>
 #include <cstdio>
 #include <string>
+#include <algorithm>
 
 #ifdef __GNUC__
 #include <getopt.h>
