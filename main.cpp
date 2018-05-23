@@ -109,8 +109,8 @@ int main(int argc, char **argv)
     Rect rect;
 
     //Parse args
-    int challenge_flag = 0;
     int loop_flag = 0;
+    int ipcamera_flag = 0;
     int verbose_flag = 0;
     int bbox_flag = 0;
     int skip_frames = 0;
@@ -131,7 +131,7 @@ int main(int argc, char **argv)
     struct option longopts[] =
     {
         //No-argument options
-        {"challenge", no_argument, &challenge_flag, 1},
+        {"ipcamera", no_argument, &ipcamera_flag, 1},
         {"loop", no_argument, &loop_flag, 1},
         {"verbose", no_argument, &verbose_flag, 1},
         {"no-scale", no_argument, 0, no_scale_cmd},
@@ -148,10 +148,13 @@ int main(int argc, char **argv)
 
     int index = 0;
     int c;
-    while((c = getopt_long(argc, argv, "v", longopts, &index)) != -1)
+    while((c = getopt_long(argc, argv, "vi", longopts, &index)) != -1)
     {
         switch (c)
         {
+            case 'i':
+                ipcamera_flag = true;
+                break;
             case 'v':
                 verbose_flag = true;
                 break;
@@ -228,85 +231,6 @@ int main(int argc, char **argv)
     FILELog::ReportingLevel() = verbose_flag ? logDEBUG : logINFO;
     Output2FILE::Stream() = stdout; //Log to stdout
 
-    //Challenge mode
-    if (challenge_flag)
-    {
-        //Read list of images
-        ifstream im_file("images.txt");
-        vector<string> files;
-        string line;
-        while(getline(im_file, line ))
-        {
-            files.push_back(line);
-        }
-
-        //Read region
-        ifstream region_file("region.txt");
-        vector<float> coords = getNextLineAndSplitIntoFloats(region_file);
-
-        if (coords.size() == 4) {
-            rect = Rect(coords[0], coords[1], coords[2], coords[3]);
-        }
-
-        else if (coords.size() == 8)
-        {
-            //Split into x and y coordinates
-            vector<float> xcoords;
-            vector<float> ycoords;
-
-            for (size_t i = 0; i < coords.size(); i++)
-            {
-                if (i % 2 == 0) xcoords.push_back(coords[i]);
-                else ycoords.push_back(coords[i]);
-            }
-
-            float xmin = *min_element(xcoords.begin(), xcoords.end());
-            float xmax = *max_element(xcoords.begin(), xcoords.end());
-            float ymin = *min_element(ycoords.begin(), ycoords.end());
-            float ymax = *max_element(ycoords.begin(), ycoords.end());
-
-            rect = Rect(xmin, ymin, xmax-xmin, ymax-ymin);
-            cout << "Found bounding box" << xmin << " " << ymin << " " <<  xmax-xmin << " " << ymax-ymin << endl;
-        }
-
-        else {
-            cerr << "Invalid Bounding box format" << endl;
-            return 0;
-        }
-
-        //Read first image
-        Mat im0 = imread(files[0]);
-        Mat im0_gray;
-        cvtColor(im0, im0_gray, CV_BGR2GRAY);
-
-        //Initialize cmt
-        cmt.initialize(im0_gray, rect);
-
-        //Write init region to output file
-        ofstream output_file("output.txt");
-        output_file << rect.x << ',' << rect.y << ',' << rect.width << ',' << rect.height << std::endl;
-
-        //Process images, write output to file
-        for (size_t i = 1; i < files.size(); i++)
-        {
-            FILE_LOG(logINFO) << "Processing frame " << i << "/" << files.size();
-            Mat im = imread(files[i]);
-            Mat im_gray;
-            cvtColor(im, im_gray, CV_BGR2GRAY);
-            cmt.processFrame(im_gray);
-            if (verbose_flag)
-            {
-                display(im, cmt);
-            }
-            rect = cmt.bb_rot.boundingRect();
-            output_file << rect.x << ',' << rect.y << ',' << rect.width << ',' << rect.height << std::endl;
-        }
-
-        output_file.close();
-
-        return 0;
-    }
-
     //Normal mode
 
     //Create window
@@ -316,8 +240,14 @@ int main(int argc, char **argv)
 
     bool show_preview = true;
 
+    // First check ipcamera_flag
+    if(ipcamera_flag)
+    {
+        cap.open("rtspsrc location=rtsp://192.168.1.168:554/sub latency=0 ! decodebin ! videoconvert ! appsink");
+    }
+
     //If no input was specified
-    if (input_path.length() == 0)
+    else if (input_path.length() == 0)
     {
         cap.open(0); //Open default camera device
     }
@@ -350,33 +280,42 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    //Show preview until key is pressed
-    while (show_preview)
-    {
-        Mat preview;
-        cap >> preview;
-
-        screenLog(preview, "Press a key to start selecting an object.");
-        imshow(WIN_NAME, preview);
-
-        char k = waitKey(10);
-        if (k != -1) {
-            show_preview = false;
-        }
-    }
-
-    //Get initial image
     Mat im0;
-    cap >> im0;
-
-    //If no bounding was specified, get it from user
-    if (!bbox_flag)
+    
+    // get init rect for ipcamera mode
+    if(ipcamera_flag)
     {
-        rect = getRect(im0, WIN_NAME);
-    }
 
-    FILE_LOG(logINFO) << "Using " << rect.x << "," << rect.y << "," << rect.width << "," << rect.height
-        << " as initial bounding box.";
+    }
+    else
+    {
+        //Show preview until key is pressed
+        while (show_preview)
+        {
+            Mat preview;
+            cap >> preview;
+
+            screenLog(preview, "Press a key to start selecting an object.");
+            imshow(WIN_NAME, preview);
+
+            char k = waitKey(10);
+            if (k != -1) {
+                show_preview = false;
+            }
+        }
+
+        //Get initial image
+        cap >> im0;
+
+        //If no bounding was specified, get it from user
+        if (!bbox_flag)
+        {
+            rect = getRect(im0, WIN_NAME);
+        }
+
+        FILE_LOG(logINFO) << "Using " << rect.x << "," << rect.y << "," << rect.width << "," << rect.height
+            << " as initial bounding box.";
+    }
 
     //Convert im0 to grayscale
     Mat im0_gray;
@@ -449,8 +388,16 @@ int main(int argc, char **argv)
 		double fps = cv::getTickFrequency() / (timetest_new - timetest);
 		timetest = timetest_new;
 		cv::putText(im, "fps : " + std::to_string(static_cast<int>(fps)), cv::Point(20, 20), 1, 1, cv::Scalar(0, 255, 0), 1);
-        char key = display(im, cmt);
-        if(key == 'q') break;
+        // display for ipcamera mode
+        if(ipcamera_flag)
+        {
+
+        }
+        else
+        {
+            char key = display(im, cmt);
+            if(key == 'q') break;
+        }
     }
 
     //Close output file.
