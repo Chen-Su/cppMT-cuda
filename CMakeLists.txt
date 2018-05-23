@@ -1,9 +1,8 @@
 project (CMT)
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.1)
 
-option(BUILD_TRAX_CLIENT "Build the trax client." OFF)
-
+# set(OpenCV_DIR /opt/share/OpenCV/)
 find_package(OpenCV REQUIRED)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -11,6 +10,16 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 add_definitions ("-Wall")
+
+set(CMAKE_CXX_STANDARD 11)
+
+find_package(OpenMP)
+
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif()
 
 include_directories(${OpenCV_INCLUDE_DIRS})
 
@@ -26,19 +35,3 @@ add_executable (cmt common.cpp gui.cpp main.cpp
 endif()
 
 target_link_libraries(cmt ${OpenCV_LIBS})
-
-if(BUILD_TRAX_CLIENT)
-    set(TRAX_DIR "" CACHE FILEPATH "Path to trax")
-
-    include_directories(${TRAX_DIR}/include)
-
-    add_executable (trax_client cmt common.cpp gui.cpp trax.cpp
-        CMT.cpp Consensus.cpp Fusion.cpp Matcher.cpp Tracker.cpp
-        fastcluster/fastcluster.cpp)
-
-    find_library(TRAX_LIBRARY NAMES trax HINTS "${TRAX_DIR}/lib")
-
-    target_link_libraries(trax_client ${OpenCV_LIBS} ${TRAX_LIBRARY})
-
-endif()
-
