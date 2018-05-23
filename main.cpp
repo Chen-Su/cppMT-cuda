@@ -11,6 +11,9 @@
 #include <string>
 #include <algorithm>
 
+#include <unistd.h>     // for read()
+#include <thread>       // for thread()
+
 #ifdef __GNUC__
 #include <getopt.h>
 #else
@@ -69,6 +72,21 @@ int fdW = 0;            // fd for write
 int last_box_id = 0;
 cv::Rect boxes[3];
 
+void readfromstdin()
+{
+    while(true)
+    {
+        if(read(0, &sign, 1) > 0)
+        {
+            // if(sign == '\n' || sign == '\r') continue;
+            cout << "get sign : " << sign << endl;
+            get_sign = true;
+        }
+        char tmp;
+        read(0, &tmp, 1);
+    }
+
+}
 
 
 vector<float> getNextLineAndSplitIntoFloats(istream& str)
@@ -288,7 +306,8 @@ int main(int argc, char **argv)
     // First check ipcamera_flag
     if(ipcamera_flag)
     {
-        cap.open("rtspsrc location=rtsp://192.168.1.168:554/sub latency=0 ! decodebin ! videoconvert ! appsink");
+        cap.open(0);
+        // cap.open("rtspsrc location=rtsp://192.168.1.168:554/sub latency=0 ! decodebin ! videoconvert ! appsink");
     }
 
     //If no input was specified
@@ -327,7 +346,10 @@ int main(int argc, char **argv)
 
     Mat im0;
     
-    // get init rect for ipcamera mode
+    // create thread for read()
+    std::thread tRead(readfromstdin);
+
+    // init for ipcamera mode
     if(ipcamera_flag)
     {
         // get imgw and imgh;
@@ -336,8 +358,12 @@ int main(int argc, char **argv)
         int imgw = first_img.cols;
         int imgh = first_img.rows;
         initBoxes(imgw, imgh);
-        // set box id
+    }
+
 RESTART:
+    if(ipcamera_flag)
+    {
+        // set box id
         while(true)
         {
             Mat preview;
@@ -347,12 +373,14 @@ RESTART:
             imshow(WIN_NAME, preview);
             waitKey(10);
 
+            bool track_flag = false;
             if(get_sign)
             {
                 get_sign = false;
                 switch(sign)
                 {
                     case xAPP_FOLLOW_LOCK:
+                        track_flag = true;
                         break;
                     case xAPP_FOLLOW_OVER:
                         end_read = true;
@@ -370,8 +398,10 @@ RESTART:
                         break;
                 }
             }
+            if(track_flag) break;
         }
         rect = boxes[last_box_id];
+        cap >> im0;
     }
     else
     {
@@ -398,10 +428,10 @@ RESTART:
         {
             rect = getRect(im0, WIN_NAME);
         }
-
-        FILE_LOG(logINFO) << "Using " << rect.x << "," << rect.y << "," << rect.width << "," << rect.height
-            << " as initial bounding box.";
     }
+
+    FILE_LOG(logINFO) << "Using " << rect.x << "," << rect.y << "," << rect.width << "," << rect.height
+            << " as initial bounding box.";
 
     //Convert im0 to grayscale
     Mat im0_gray;
