@@ -34,6 +34,21 @@ using std::max_element;
 using std::endl;
 using ::atof;
 
+/*
+#define xAPP_FOLLOW_LOCK              0x1E
+#define xAPP_FOLLOW_OVER              0x2D
+#define xAPP_FOLLOW_RELIEVE           0x3C
+#define xAPP_FOLLOW_SHAPE_A           0x4B
+#define xAPP_FOLLOW_SHAPE_B           0x5A
+#define xAPP_FOLLOW_SHAPE_C           0x69
+*/
+#define xAPP_FOLLOW_LOCK              'r'
+#define xAPP_FOLLOW_OVER              'q'
+#define xAPP_FOLLOW_RELIEVE           's'
+#define xAPP_FOLLOW_SHAPE_A           '1'
+#define xAPP_FOLLOW_SHAPE_B           '2'
+#define xAPP_FOLLOW_SHAPE_C           '3'
+
 static string WIN_NAME = "CMT";
 static string OUT_FILE_COL_HEADERS =
     "Frame,Timestamp (ms),Active points,"\
@@ -44,6 +59,17 @@ static string OUT_FILE_COL_HEADERS =
     "Bounding box vertex 2 X (px),Bounding box vertex 2 Y (px),"\
     "Bounding box vertex 3 X (px),Bounding box vertex 3 Y (px),"\
     "Bounding box vertex 4 X (px),Bounding box vertex 4 Y (px)";
+
+bool get_sign = false;  // read data from serial port
+char sign = 0;          // store data from serial port
+
+bool end_read = false;  // end flag for reading serial port
+int fdR = 0;            // fd for read
+int fdW = 0;            // fd for write
+int last_box_id = 0;
+cv::Rect boxes[3];
+
+
 
 vector<float> getNextLineAndSplitIntoFloats(istream& str)
 {
@@ -98,6 +124,25 @@ string write_rotated_rect(RotatedRect rect)
     }
 
     return coords.str();
+}
+
+void initBoxes(int imgw, int imgh)
+{
+    // 0, ³¤·½ÐÎ
+    boxes[0].width = 0.2 * imgw;
+    boxes[0].height = 0.2 * imgh;
+    boxes[0].x = (imgw - boxes[0].width) / 2;
+    boxes[0].y = (imgh - boxes[0].height) / 2;
+    // 1£¬ Õý·½ÐÎ
+    boxes[1].width = 0.2 * imgh;
+    boxes[1].height = 0.2 * imgh;
+    boxes[1].x = (imgw - boxes[1].width) / 2;
+    boxes[1].y = (imgh - boxes[1].height) / 2;
+    // 2£¬ ºá×ÅµÄ³¤·½ÐÎ
+    boxes[2].width = 0.2 * imgh;
+    boxes[2].height = 0.2 * imgw;
+    boxes[2].x = (imgw - boxes[2].width) / 2;
+    boxes[2].y = (imgh - boxes[2].height) / 2;
 }
 
 int main(int argc, char **argv)
@@ -285,7 +330,48 @@ int main(int argc, char **argv)
     // get init rect for ipcamera mode
     if(ipcamera_flag)
     {
+        // get imgw and imgh;
+        Mat first_img;
+        cap >> first_img;
+        int imgw = first_img.cols;
+        int imgh = first_img.rows;
+        initBoxes(imgw, imgh);
+        // set box id
+RESTART:
+        while(true)
+        {
+            Mat preview;
+            cap >> preview;
+            screenLog(preview, "Select a box to start tracking.");
+            cv::rectangle(preview, boxes[last_box_id], cv::Scalar(0, 255, 0));
+            imshow(WIN_NAME, preview);
+            waitKey(10);
 
+            if(get_sign)
+            {
+                get_sign = false;
+                switch(sign)
+                {
+                    case xAPP_FOLLOW_LOCK:
+                        break;
+                    case xAPP_FOLLOW_OVER:
+                        end_read = true;
+                        return 0;   // not good.
+                    case xAPP_FOLLOW_SHAPE_A:
+                        last_box_id = 0;
+                        break;
+                    case xAPP_FOLLOW_SHAPE_B:
+                        last_box_id = 1;
+                        break;
+                    case xAPP_FOLLOW_SHAPE_C:
+                        last_box_id = 2;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+        rect = boxes[last_box_id];
     }
     else
     {
@@ -391,7 +477,13 @@ int main(int argc, char **argv)
         // display for ipcamera mode
         if(ipcamera_flag)
         {
-
+            display(im, cmt);
+            if(get_sign)
+            {
+                get_sign = false;
+                if(sign == xAPP_FOLLOW_RELIEVE)
+                    goto RESTART;
+            }
         }
         else
         {
