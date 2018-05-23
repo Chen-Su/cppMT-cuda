@@ -1,4 +1,4 @@
-project (CMT)
+project (cmt)
 
 cmake_minimum_required (VERSION 3.1)
 
@@ -24,14 +24,14 @@ endif()
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 if(WIN32)
-add_executable (cmt common.cpp gui.cpp main.cpp
+add_executable (${PROJECT_NAME} common.cpp gui.cpp main.cpp
     CMT.cpp Consensus.cpp Fusion.cpp Matcher.cpp Tracker.cpp
     fastcluster/fastcluster.cpp getopt/getopt.cpp
     )
 else()
-add_executable (cmt common.cpp gui.cpp main.cpp
+add_executable (${PROJECT_NAME} common.cpp gui.cpp main.cpp
     CMT.cpp Consensus.cpp Fusion.cpp Matcher.cpp Tracker.cpp
     fastcluster/fastcluster.cpp)
 endif()
 
-target_link_libraries(cmt ${OpenCV_LIBS})
+target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
