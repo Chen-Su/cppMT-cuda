@@ -71,8 +71,6 @@ bool get_sign = false;  // read data from serial port
 char sign = 0;          // store data from serial port
 
 bool end_read = false;  // end flag for reading serial port
-int fdR = 0;            // fd for read
-int fdW = 0;            // fd for write
 int last_box_id = 0;
 cv::Rect boxes[3];
 
@@ -161,6 +159,26 @@ void config_port(int fd)
         printf("Config port success.\n");
 }
 
+void readFromPort(int fd)
+{
+    tcflush(fd, TCIFLUSH);
+    printf("Ready for reading directive.\n");
+    while(true)
+    {
+        if(read(fd, &sign, 1) > 0)
+        {
+            printf("Get directive : %c\n", sign);
+            get_sign = true;
+            if(sign == xAPP_FOLLOW_OVER)              
+                break;
+        }
+    }
+}
+
+void writeToPort(int fd, const string &str)
+{
+    write(fd, str.c_str(), str.size());
+}
 
 vector<float> getNextLineAndSplitIntoFloats(istream& str)
 {
@@ -420,7 +438,13 @@ int main(int argc, char **argv)
     Mat im0;
     
     // create thread for read()
-    std::thread tRead(readfromstdin);
+    // std::thread tRead(readfromstdin);
+    int fdR = open_port("/dev/pts/26");
+    // int fdW = open_port("/dev/pts/23");
+    config_port(fdR);
+    // config_port(fdW);
+
+    std::thread tRead(readFromPort, fdR);
 
     // init for ipcamera mode
     if(ipcamera_flag)
@@ -457,6 +481,9 @@ RESTART:
                         break;
                     case xAPP_FOLLOW_OVER:
                         end_read = true;
+                        tRead.join();
+                        close(fdR);
+                        // close(fdW);
                         return 0;   // not good.
                     case xAPP_FOLLOW_SHAPE_A:
                         last_box_id = 0;
