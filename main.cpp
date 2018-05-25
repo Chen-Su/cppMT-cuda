@@ -202,19 +202,23 @@ vector<float> getNextLineAndSplitIntoFloats(istream& str)
 
 int display(Mat im, CMT & cmt)
 {
-    //Visualize the output
-    //It is ok to draw on im itself, as CMT only uses the grayscale image
-    for(size_t i = 0; i < cmt.points_active.size(); i++)
+    if(cmt.is_detected)
     {
-        circle(im, cmt.points_active[i], 2, Scalar(255,0,0));
+        //Visualize the output
+        //It is ok to draw on im itself, as CMT only uses the grayscale image
+        for(size_t i = 0; i < cmt.points_active.size(); i++)
+        {
+            circle(im, cmt.points_active[i], 2, Scalar(255,0,0));
+        }
+
+        Point2f vertices[4];
+        cmt.bb_rot.points(vertices);
+        for (int i = 0; i < 4; i++)
+        {
+            line(im, vertices[i], vertices[(i+1)%4], Scalar(255,0,0));
+        }
     }
 
-    Point2f vertices[4];
-    cmt.bb_rot.points(vertices);
-    for (int i = 0; i < 4; i++)
-    {
-        line(im, vertices[i], vertices[(i+1)%4], Scalar(255,0,0));
-    }
 
     imshow(WIN_NAME, im);
 
@@ -445,10 +449,10 @@ int main(int argc, char **argv)
     int fdR, fdW;
     if(ipcamera_flag)
     {
-    fdR = open_port("/dev/pts/20");
-    fdW = open_port("/dev/ttyS1");
-    config_port(fdR);
-    config_port(fdW);
+        fdR = open_port("/dev/pts/20");
+        fdW = open_port("/dev/ttyS1");
+        config_port(fdR);
+        config_port(fdW);
     }
 
     std::thread tRead(readFromPort, fdR);
@@ -624,19 +628,23 @@ RESTART:
         if(ipcamera_flag)
         {
             display(im, cmt);
-            Point2f vertices[4];
-            cmt.bb_rot.points(vertices);
-            std::string output;
-            char outputhead[3] = { static_cast<char>(0xff), static_cast<char>(0x01), static_cast<char>(0x00) };
-            output += outputhead;
-            std::stringstream sstmp;
-            sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[1].x);
-            sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[1].y);
-            sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[3].x);
-            sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[3].y);
-            output += sstmp.str();
-            cout << output << endl;
-            writeToPort(fdW, output);
+            if(cmt.is_detected)
+            {
+                Point2f vertices[4];
+                cmt.bb_rot.points(vertices);
+                std::string output;
+                char outputhead[3] = { static_cast<char>(0xff), static_cast<char>(0x01), static_cast<char>(0x00) };
+                output += outputhead;
+                std::stringstream sstmp;
+                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[1].x);
+                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[1].y);
+                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[3].x);
+                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[3].y);
+                output += sstmp.str();
+                cout << output << endl;
+                writeToPort(fdW, output);
+            }
+
             if(get_sign)
             {
                 get_sign = false;

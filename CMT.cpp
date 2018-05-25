@@ -3,6 +3,11 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include <algorithm>
+
+using std::max;
+using std::min;
+
 namespace cmt {
 
 void CMT::initialize(const Mat im_gray, const Rect rect)
@@ -52,6 +57,8 @@ void CMT::initialize(const Mat im_gray, const Rect rect)
         }
 
     }
+
+    O = keypoints_fg.size();
 
     //Create foreground classes
     vector<int> classes_fg;
@@ -128,7 +135,19 @@ void CMT::processFrame(Mat im_gray) {
 
     //Detect keypoints, compute descriptors
     vector<KeyPoint> keypoints;
-	orb_detector->detect(im_gray, keypoints);
+    Rect bb;
+        bb.x = max(static_cast<int>(bb_rot.center.x - 1.5 * bb_rot.size.width), 0);
+        bb.y = max(static_cast<int>(bb_rot.center.y - 1.5 * bb_rot.size.height), 0);
+        bb.width = min(static_cast<int>(bb_rot.size.width * 2), im_gray.cols - bb.x);
+        bb.height = min(static_cast<int>(bb_rot.size.height * 2), im_gray.rows - bb.y);
+        Mat mask = Mat::zeros(im_gray.size(), CV_8U);
+        Mat roi(mask, bb);
+        roi = cv::Scalar(255, 255, 255);
+
+        if (is_detected)
+            orb_detector->detect(im_gray, keypoints, mask), printf("partical detect");
+        else
+            orb_detector->detect(im_gray, keypoints);
 
     FILE_LOG(logDEBUG) << keypoints.size() << " keypoints found.";
 
@@ -166,6 +185,11 @@ void CMT::processFrame(Mat im_gray) {
 
     FILE_LOG(logDEBUG) << points_inlier.size() << " inlier points.";
     FILE_LOG(logDEBUG) << "center " << center;
+
+    if(points_inlier.size() >= theta * O)
+        is_detected = true;
+    else
+        is_detected = false;
 
     //Match keypoints locally
     /*vector<Point2f> points_matched_local;

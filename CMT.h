@@ -29,7 +29,7 @@ namespace cmt
 class CMT
 {
 public:
-    CMT(){};
+    CMT(){is_detected = true; theta = 0.15;};
     void initialize(const Mat im_gray, const Rect rect);
     void processFrame(const Mat im_gray);
 
@@ -41,6 +41,8 @@ public:
     vector<Point2f> points_active; //public for visualization purposes
     RotatedRect bb_rot;
 
+    bool is_detected;
+
 private:
 
 
@@ -51,6 +53,7 @@ private:
     vector<int> classes_active;
 
     float theta;
+    int O;
 
     Mat im_prev;
 };
