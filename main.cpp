@@ -60,14 +60,14 @@ using std::setw;
 
 static string WIN_NAME = "CMT";
 static string OUT_FILE_COL_HEADERS =
-"Frame,Timestamp (ms),Active points,"\
-"Bounding box centre X (px),Bounding box centre Y (px),"\
-"Bounding box width (px),Bounding box height (px),"\
-"Bounding box rotation (degrees),"\
-"Bounding box vertex 1 X (px),Bounding box vertex 1 Y (px),"\
-"Bounding box vertex 2 X (px),Bounding box vertex 2 Y (px),"\
-"Bounding box vertex 3 X (px),Bounding box vertex 3 Y (px),"\
-"Bounding box vertex 4 X (px),Bounding box vertex 4 Y (px)";
+    "Frame,Timestamp (ms),Active points,"\
+    "Bounding box centre X (px),Bounding box centre Y (px),"\
+    "Bounding box width (px),Bounding box height (px),"\
+    "Bounding box rotation (degrees),"\
+    "Bounding box vertex 1 X (px),Bounding box vertex 1 Y (px),"\
+    "Bounding box vertex 2 X (px),Bounding box vertex 2 Y (px),"\
+    "Bounding box vertex 3 X (px),Bounding box vertex 3 Y (px),"\
+    "Bounding box vertex 4 X (px),Bounding box vertex 4 Y (px)";
 
 bool get_sign = false;  // read data from serial port
 char sign = 0;          // store data from serial port
@@ -75,6 +75,7 @@ char sign = 0;          // store data from serial port
 bool end_read = false;  // end flag for reading serial port
 int last_box_id = 0;
 cv::Rect boxes[3];
+int ipcamera_flag = 0;
 
 void readfromstdin()
 {
@@ -94,15 +95,15 @@ void readfromstdin()
 
 int open_port(const char *port_name)
 {
-  int fd; /* File descriptor for the port */
+    int fd; /* File descriptor for the port */
 
 
     fd = open(port_name, O_RDWR | O_NOCTTY | FNDELAY);
     if (fd == -1)
     {
-   /*
-    * Could not open the port.
-    */
+        /*
+         * Could not open the port.
+         */
 
         printf("open_port: Unable to open %s\n", port_name);
         exit(-1);
@@ -118,7 +119,7 @@ void config_port(int fd)
 
     // Set baud rate
     struct termios options;
-    
+
     // Get the current options for the port...
     tcgetattr(fd, &options);
 
@@ -145,7 +146,7 @@ void config_port(int fd)
 
     // Choosing Raw Input
     options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-    
+
     /*Choosing Raw Output*/
     options.c_oflag &= ~OPOST;
 
@@ -163,6 +164,8 @@ void config_port(int fd)
 
 void readFromPort(int fd)
 {
+    if(!ipcamera_flag)
+        return;
     tcflush(fd, TCIFLUSH);
     printf("Ready for reading directive.\n");
     while(true)
@@ -171,7 +174,7 @@ void readFromPort(int fd)
         {
             printf("Get directive : %c\n", sign);
             get_sign = true;
-            if(sign == xAPP_FOLLOW_OVER)              
+            if(sign == xAPP_FOLLOW_OVER)
                 break;
         }
     }
@@ -266,7 +269,6 @@ int main(int argc, char **argv)
 
     //Parse args
     int loop_flag = 0;
-    int ipcamera_flag = 0;
     int verbose_flag = 0;
     int bbox_flag = 0;
     int skip_frames = 0;
@@ -308,83 +310,82 @@ int main(int argc, char **argv)
     {
         switch (c)
         {
-            case 'i':
+        case 'i':
             ipcamera_flag = true;
             break;
-            case 'v':
+        case 'v':
             verbose_flag = true;
             break;
-            case bbox_cmd:
+        case bbox_cmd:
+        {
+            //TODO: The following also accepts strings of the form %f,%f,%f,%fxyz...
+            string bbox_format = "%f,%f,%f,%f";
+            float x,y,w,h;
+            int ret = sscanf(optarg, bbox_format.c_str(), &x, &y, &w, &h);
+            if (ret != 4)
             {
-                    //TODO: The following also accepts strings of the form %f,%f,%f,%fxyz...
-                string bbox_format = "%f,%f,%f,%f";
-                float x,y,w,h;
-                int ret = sscanf(optarg, bbox_format.c_str(), &x, &y, &w, &h);
-                if (ret != 4)
-                {
-                    cerr << "bounding box must be given in format " << bbox_format << endl;
-                    return 1;
-                }
-
-                bbox_flag = 1;
-                rect = Rect(x,y,w,h);
+                cerr << "bounding box must be given in format " << bbox_format << endl;
+                return 1;
             }
-            break;
-            case output_file_cmd:
+
+            bbox_flag = 1;
+            rect = Rect(x,y,w,h);
+        }
+        break;
+        case output_file_cmd:
             output_path = optarg;
             output_flag = 1;
             break;
-            case skip_cmd:
+        case skip_cmd:
+        {
+            int ret = sscanf(optarg, "%d", &skip_frames);
+            if (ret != 1)
             {
-                int ret = sscanf(optarg, "%d", &skip_frames);
-                if (ret != 1)
-                {
-                  skip_frames = 0;
-              }
-          }
-          break;
-          case skip_msecs_cmd:
-          {
+                skip_frames = 0;
+            }
+        }
+        break;
+        case skip_msecs_cmd:
+        {
             int ret = sscanf(optarg, "%d", &skip_msecs);
             if (ret != 1)
             {
-              skip_msecs = 0;
-          }
-      }
-      break;
-      case no_scale_cmd:
-      cmt.consensus.estimate_scale = false;
-      break;
-      case with_rotation_cmd:
-      cmt.consensus.estimate_rotation = true;
-      break;
-      case '?':
-      return 1;
-  }
-
-}
+                skip_msecs = 0;
+            }
+        }
+        break;
+        case no_scale_cmd:
+            cmt.consensus.estimate_scale = false;
+            break;
+        case with_rotation_cmd:
+            cmt.consensus.estimate_rotation = true;
+            break;
+        case '?':
+            return 1;
+        }
+    }
 
     // Can only skip frames or milliseconds, not both.
-if (skip_frames > 0 && skip_msecs > 0)
-{
-  cerr << "You can only skip frames, or milliseconds, not both." << endl;
-  return 1;
-}
+    if (skip_frames > 0 && skip_msecs > 0)
+    {
+        cerr << "You can only skip frames, or milliseconds, not both." << endl;
+        return 1;
+    }
 
     //One argument remains
-if (optind == argc - 1)
-{
-    input_path = argv[optind];
-}
+    if (optind == argc - 1)
+    {
+        input_path = argv[optind];
+    }
 
-else if (optind < argc - 1)
-{
-    cerr << "Only one argument is allowed." << endl;
-    return 1;
-}
+    else if (optind < argc - 1)
+    {
+        cerr << "Only one argument is allowed." << endl;
+        return 1;
+    }
 
     //Set up logging
-FILELog::ReportingLevel() = verbose_flag ? logDEBUG : logINFO;
+    FILELog::ReportingLevel() = verbose_flag ? logDEBUG : logINFO;
     Output2FILE::Stream() = stdout; //Log to stdout
 
     //Normal mode
@@ -416,169 +417,182 @@ FILELog::ReportingLevel() = verbose_flag ? logDEBUG : logINFO;
 
         if (skip_frames > 0)
         {
-          cap.set(CV_CAP_PROP_POS_FRAMES, skip_frames);
-      }
+            cap.set(CV_CAP_PROP_POS_FRAMES, skip_frames);
+        }
 
-      if (skip_msecs > 0)
-      {
-          cap.set(CV_CAP_PROP_POS_MSEC, skip_msecs);
+        if (skip_msecs > 0)
+        {
+            cap.set(CV_CAP_PROP_POS_MSEC, skip_msecs);
 
-          // Now which frame are we on?
-          skip_frames = (int) cap.get(CV_CAP_PROP_POS_FRAMES);
-      }
+            // Now which frame are we on?
+            skip_frames = (int) cap.get(CV_CAP_PROP_POS_FRAMES);
+        }
 
-      show_preview = false;
-  }
+        show_preview = false;
+    }
 
     //If it doesn't work, stop
-  if(!cap.isOpened())
-  {
-    cerr << "Unable to open video capture." << endl;
-    return -1;
-}
+    if(!cap.isOpened())
+    {
+        cerr << "Unable to open video capture." << endl;
+        return -1;
+    }
 
-Mat im0;
+    Mat im0;
 
     // create thread for read()
     // std::thread tRead(readfromstdin);
-int fdR = open_port("/dev/pts/26");
-int fdW = open_port("/dev/pts/23");
-config_port(fdR);
-config_port(fdW);
+    int fdR, fdW;
+    if(ipcamera_flag)
+    {
+    fdR = open_port("/dev/pts/20");
+    fdW = open_port("/dev/ttyS1");
+    config_port(fdR);
+    config_port(fdW);
+    }
 
-std::thread tRead(readFromPort, fdR);
+    std::thread tRead(readFromPort, fdR);
+    if(!ipcamera_flag)
+        tRead.join();   // Return immediately if not ipcamera mode.
 
     // init for ipcamera mode
-if(ipcamera_flag)
-{
+    if(ipcamera_flag)
+    {
         // get imgw and imgh;
-    Mat first_img;
-    cap >> first_img;
-    int imgw = first_img.cols;
-    int imgh = first_img.rows;
-    initBoxes(imgw, imgh);
-}
+        Mat first_img;
+        cap >> first_img;
+        int imgw = first_img.cols;
+        int imgh = first_img.rows;
+        initBoxes(imgw, imgh);
+    }
 
 RESTART:
-if(ipcamera_flag)
-{
-        // set box id
-    while(true)
+    if(ipcamera_flag)
     {
-        Mat preview;
-        cap >> preview;
-        screenLog(preview, "Select a box to start tracking.");
-        cv::rectangle(preview, boxes[last_box_id], cv::Scalar(0, 255, 0));
-        imshow(WIN_NAME, preview);
-        waitKey(10);
-
-        bool track_flag = false;
-        if(get_sign)
+        // set box id
+        while(true)
         {
-            get_sign = false;
-            switch(sign)
+            Mat preview;
+            cap >> preview;
+            screenLog(preview, "Select a box to start tracking.");
+            cv::rectangle(preview, boxes[last_box_id], cv::Scalar(0, 255, 0));
+            imshow(WIN_NAME, preview);
+            waitKey(10);
+
+            bool track_flag = false;
+            if(get_sign)
             {
+                get_sign = false;
+                switch(sign)
+                {
                 case xAPP_FOLLOW_LOCK:
-                track_flag = true;
-                break;
+                    track_flag = true;
+                    break;
                 case xAPP_FOLLOW_OVER:
-                end_read = true;
-                tRead.join();
-                close(fdR);
-                close(fdW);
-                        return 0;   // not good.
-                        case xAPP_FOLLOW_SHAPE_A:
-                        last_box_id = 0;
-                        break;
-                        case xAPP_FOLLOW_SHAPE_B:
-                        last_box_id = 1;
-                        break;
-                        case xAPP_FOLLOW_SHAPE_C:
-                        last_box_id = 2;
-                        break;
-                        default:
-                        break;
-                    }
+                    end_read = true;
+                    tRead.join();
+                    close(fdR);
+                    close(fdW);
+                    return 0;   // not good.
+                case xAPP_FOLLOW_SHAPE_A:
+                    last_box_id = 0;
+                    break;
+                case xAPP_FOLLOW_SHAPE_B:
+                    last_box_id = 1;
+                    break;
+                case xAPP_FOLLOW_SHAPE_C:
+                    last_box_id = 2;
+                    break;
+                default:
+                    break;
                 }
-                if(track_flag) break;
             }
-            rect = boxes[last_box_id];
-            cap >> im0;
+            if(track_flag) break;
         }
-        else
-        {
+        rect = boxes[last_box_id];
+        cap >> im0;
+    }
+    else
+    {
         //Show preview until key is pressed
-            while (show_preview)
+        while (show_preview)
+        {
+            Mat preview;
+            cap >> preview;
+
+            screenLog(preview, "Press a key to start selecting an object.");
+            imshow(WIN_NAME, preview);
+
+            char k = waitKey(10);
+            if (k != -1)
             {
-                Mat preview;
-                cap >> preview;
-
-                screenLog(preview, "Press a key to start selecting an object.");
-                imshow(WIN_NAME, preview);
-
-                char k = waitKey(10);
-                if (k != -1) {
-                    show_preview = false;
-                }
+                show_preview = false;
             }
+        }
 
         //Get initial image
-            cap >> im0;
+        cap >> im0;
 
         //If no bounding was specified, get it from user
-            if (!bbox_flag)
-            {
-                rect = getRect(im0, WIN_NAME);
-            }
+        if (!bbox_flag)
+        {
+            rect = getRect(im0, WIN_NAME);
         }
+    }
 
-        FILE_LOG(logINFO) << "Using " << rect.x << "," << rect.y << "," << rect.width << "," << rect.height
-        << " as initial bounding box.";
+    FILE_LOG(logINFO) << "Using " << rect.x << "," << rect.y << "," << rect.width << "," << rect.height
+                      << " as initial bounding box.";
 
     //Convert im0 to grayscale
-        Mat im0_gray;
-        if (im0.channels() > 1) {
-            cvtColor(im0, im0_gray, CV_BGR2GRAY);
-        } else {
-            im0_gray = im0;
-        }
+    Mat im0_gray;
+    if (im0.channels() > 1)
+    {
+        cvtColor(im0, im0_gray, CV_BGR2GRAY);
+    }
+    else
+    {
+        im0_gray = im0;
+    }
 
     //Initialize CMT
-        cmt.initialize(im0_gray, rect);
+    cmt.initialize(im0_gray, rect);
 
-        int frame = skip_frames;
+    int frame = skip_frames;
 
     //Open output file.
-        ofstream output_file;
+    ofstream output_file;
 
-        if (output_flag)
-        {
-            int msecs = (int) cap.get(CV_CAP_PROP_POS_MSEC);
+    if (output_flag)
+    {
+        int msecs = (int) cap.get(CV_CAP_PROP_POS_MSEC);
 
-            output_file.open(output_path.c_str());
-            output_file << OUT_FILE_COL_HEADERS << endl;
-            output_file << frame << "," << msecs << ",";
-            output_file << cmt.points_active.size() << ",";
-            output_file << write_rotated_rect(cmt.bb_rot) << endl;
-        }
-        double timetest = cv::getTickCount();
+        output_file.open(output_path.c_str());
+        output_file << OUT_FILE_COL_HEADERS << endl;
+        output_file << frame << "," << msecs << ",";
+        output_file << cmt.points_active.size() << ",";
+        output_file << write_rotated_rect(cmt.bb_rot) << endl;
+    }
+    double timetest = cv::getTickCount();
     //Main loop
-        while (true)
-        {
-            frame++;
+    while (true)
+    {
+        frame++;
 
-            Mat im;
+        Mat im;
 
         //If loop flag is set, reuse initial image (for debugging purposes)
-            if (loop_flag) im0.copyTo(im);
+        if (loop_flag) im0.copyTo(im);
         else cap >> im; //Else use next image in stream
 
         if (im.empty()) break; //Exit at end of video stream
 
         Mat im_gray;
-        if (im.channels() > 1) {
+        if (im.channels() > 1)
+        {
             cvtColor(im, im_gray, CV_BGR2GRAY);
-        } else {
+        }
+        else
+        {
             im_gray = im;
         }
 
