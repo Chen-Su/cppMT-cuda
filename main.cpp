@@ -1,5 +1,6 @@
 #include "CMT.h"
 #include "gui.h"
+#include "register.h"
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -43,22 +44,22 @@ using ::atof;
 using std::setfill;
 using std::setw;
 
-/*
+
 #define xAPP_FOLLOW_LOCK              0x1E
 #define xAPP_FOLLOW_OVER              0x2D
 #define xAPP_FOLLOW_RELIEVE           0x3C
 #define xAPP_FOLLOW_SHAPE_A           0x4B
 #define xAPP_FOLLOW_SHAPE_B           0x5A
 #define xAPP_FOLLOW_SHAPE_C           0x69
-*/
+/*
 #define xAPP_FOLLOW_LOCK              'r'
 #define xAPP_FOLLOW_OVER              'q'
 #define xAPP_FOLLOW_RELIEVE           's'
 #define xAPP_FOLLOW_SHAPE_A           '1'
 #define xAPP_FOLLOW_SHAPE_B           '2'
 #define xAPP_FOLLOW_SHAPE_C           '3'
-
-static string WIN_NAME = "CMT";
+*/
+static string WIN_NAME = "Tracker";
 static string OUT_FILE_COL_HEADERS =
     "Frame,Timestamp (ms),Active points,"\
     "Bounding box centre X (px),Bounding box centre Y (px),"\
@@ -265,6 +266,7 @@ void initBoxes(int imgw, int imgh)
 
 int main(int argc, char **argv)
 {
+//	trackerRegister();
     //Create a CMT object
     CMT cmt;
 
@@ -389,7 +391,7 @@ int main(int argc, char **argv)
     }
 
     //Set up logging
-    FILELog::ReportingLevel() = verbose_flag ? logDEBUG : logINFO;
+    FILELog::ReportingLevel() = verbose_flag ? logWARNING : logWARNING;
     Output2FILE::Stream() = stdout; //Log to stdout
 
     //Normal mode
@@ -404,8 +406,8 @@ int main(int argc, char **argv)
     // First check ipcamera_flag
     if(ipcamera_flag)
     {
-        cap.open(0);
-        // cap.open("rtspsrc location=rtsp://192.168.1.168:554/sub latency=0 ! decodebin ! videoconvert ! appsink");
+        // cap.open(0);
+        cap.open("rtspsrc location=rtsp://192.168.1.168:554/sub latency=0 ! decodebin ! videoconvert ! appsink");
     }
 
     //If no input was specified
@@ -449,8 +451,8 @@ int main(int argc, char **argv)
     int fdR, fdW;
     if(ipcamera_flag)
     {
-        fdR = open_port("/dev/pts/20");
-        fdW = open_port("/dev/ttyS1");
+        fdR = open_port("/dev/ttyS0");
+        fdW = open_port("/dev/ttyTHS2");
         config_port(fdR);
         config_port(fdW);
     }
@@ -625,8 +627,8 @@ RESTART:
         timetest = timetest_new;
         cv::putText(im, "fps : " + std::to_string(static_cast<int>(fps)), cv::Point(20, 20), 1, 1, cv::Scalar(0, 255, 0), 1);
         // display for ipcamera mode
-        if(ipcamera_flag)
-        {
+        if(ipcamera_flag)       
+		{
             display(im, cmt);
             if(cmt.is_detected)
             {

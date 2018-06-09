@@ -1,10 +1,10 @@
-project (cmt)
+project (LabTracker)
 
 cmake_minimum_required (VERSION 3.1)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
 
-# set(OpenCV_DIR /opt/share/OpenCV/)
+set(OpenCV_DIR /opt/opencv/usr/local/share/OpenCV)
 find_package(OpenCV REQUIRED)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -27,6 +27,6 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable (${PROJECT_NAME} common.cpp gui.cpp main.cpp
     CMT.cpp Consensus.cpp Fusion.cpp Matcher.cpp Tracker.cpp
-    fastcluster/fastcluster.cpp)
+    fastcluster/fastcluster.cpp sha1.cpp register.cpp)
 
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})

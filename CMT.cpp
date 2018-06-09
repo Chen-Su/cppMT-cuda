@@ -145,7 +145,7 @@ void CMT::processFrame(Mat im_gray) {
         roi = cv::Scalar(255, 255, 255);
 
         if (is_detected)
-            orb_detector->detect(im_gray, keypoints, mask), printf("partical detect");
+            orb_detector->detect(im_gray, keypoints, mask); //, printf("partical detect");
         else
             orb_detector->detect(im_gray, keypoints);
 

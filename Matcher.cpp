@@ -69,7 +69,7 @@ void Matcher::matchGlobal(const vector<KeyPoint> & keypoints, const Mat descript
 	bfmatcher->knnMatch(descriptors, database, matches, 2);
 #endif
     
-	printf("%d\n", matches.size());
+	FILE_LOG(logDEBUG) << matches.size() << std::endl;
 
 #pragma omp parallel for
     for (int i = 0; i < matches.size(); i++)
