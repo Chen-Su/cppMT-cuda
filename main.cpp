@@ -44,6 +44,7 @@ using ::atof;
 using std::setfill;
 using std::setw;
 
+const float resize_scale = 1;
 
 #define xAPP_FOLLOW_LOCK              0x1E
 #define xAPP_FOLLOW_OVER              0x2D
@@ -209,11 +210,19 @@ int display(Mat im, CMT & cmt)
         //It is ok to draw on im itself, as CMT only uses the grayscale image
         for(size_t i = 0; i < cmt.points_active.size(); i++)
         {
-            circle(im, cmt.points_active[i], 2, Scalar(255,0,0));
+            cv::Point2f ptmp(cmt.points_active[i]);
+            ptmp.x /= resize_scale;
+            ptmp.y /= resize_scale;
+            circle(im, ptmp, 2, Scalar(255,0,0));
         }
 
         Point2f vertices[4];
-        cmt.bb_rot.points(vertices);
+        cv::RotatedRect bb(cmt.bb_rot);
+        bb.center.x /= resize_scale;
+        bb.center.y /= resize_scale;
+        bb.size.height /= resize_scale;
+        bb.size.width /= resize_scale;
+        bb.points(vertices);
         for (int i = 0; i < 4; i++)
         {
             line(im, vertices[i], vertices[(i+1)%4], Scalar(255,0,0));
@@ -549,6 +558,12 @@ RESTART:
     FILE_LOG(logINFO) << "Using " << rect.x << "," << rect.y << "," << rect.width << "," << rect.height
                       << " as initial bounding box.";
 
+    // Resize img and Rect
+    cv::resize(im0, im0, cv::Size(0,0), resize_scale, resize_scale);
+    rect.x *= resize_scale;
+    rect.y *= resize_scale;
+    rect.width *= resize_scale;
+    rect.height *= resize_scale;
     //Convert im0 to grayscale
     Mat im0_gray;
     if (im0.channels() > 1)
@@ -592,14 +607,18 @@ RESTART:
 
         if (im.empty()) break; //Exit at end of video stream
 
+        Mat im_resize;
+        cv::resize(im, im_resize, cv::Size(0,0), resize_scale, resize_scale);
+        
+
         Mat im_gray;
         if (im.channels() > 1)
         {
-            cvtColor(im, im_gray, CV_BGR2GRAY);
+            cvtColor(im_resize, im_gray, CV_BGR2GRAY);
         }
         else
         {
-            im_gray = im;
+            im_gray = im_resize;
         }
 
         //Let CMT process the frame
@@ -638,10 +657,10 @@ RESTART:
                 char outputhead[3] = { static_cast<char>(0xff), static_cast<char>(0x01), static_cast<char>(0x00) };
                 output += outputhead;
                 std::stringstream sstmp;
-                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[1].x);
-                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[1].y);
-                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[3].x);
-                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[3].y);
+                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[1].x/resize_scale);
+                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[1].y/resize_scale);
+                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[3].x/resize_scale);
+                sstmp << setw(3) << setfill('0') << static_cast<int>(vertices[3].y/resize_scale);
                 output += sstmp.str();
                 cout << output << endl;
                 writeToPort(fdW, output);
